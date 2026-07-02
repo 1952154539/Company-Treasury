@@ -1,0 +1,18 @@
+# Compiler output
+out/
+cache/
+
+# Dependencies (restore with `forge install`)
+lib/
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
