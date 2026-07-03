@@ -146,7 +146,8 @@ contract StreamingManager is
         uint64[] calldata startTimes,
         uint64[] calldata cliffDurations,
         uint64[] calldata endTimes,
-        bool[] calldata cancelables
+        bool[] calldata cancelables,
+        bytes32[] calldata budgetIds
     ) external onlyRole(STREAM_CREATOR_ROLE) returns (uint256[] memory streamIds) {
         uint256 len = recipients.length;
         streamIds = new uint256[](len);
@@ -159,7 +160,7 @@ contract StreamingManager is
                 cliffDurations[i],
                 endTimes[i],
                 cancelables[i],
-                bytes32(0)
+                budgetIds.length > i ? budgetIds[i] : bytes32(0)
             );
         }
     }

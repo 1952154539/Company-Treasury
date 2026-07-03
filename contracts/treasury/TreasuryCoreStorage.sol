@@ -48,23 +48,9 @@ struct MultiSigTransaction {
     bytes32 salt;
     // bitmap: bit i represents approval from signer at signerList[i]
     uint256 approvalBitmap;
-}
-
-struct Stream {
-    uint256 id;
-    address sender;
-    address recipient;
-    address token;
-    uint256 totalAmount;
-    uint256 remainingBalance;
-    uint64 startTime;
-    uint64 cliffDuration;
-    uint64 endTime;
-    uint256 lastWithdrawalTime;
-    uint256 withdrawnAmount;
-    bool cancelable;
-    bool active;
+    // Budget integration: if this tx spends from a budget
     bytes32 budgetId;
+    uint256 budgetAmount;
 }
 
 struct Budget {
@@ -79,6 +65,8 @@ struct Budget {
     BudgetStatus status;
     uint256 maxSingleSpend;
     uint256 approvalThreshold;
+    // Per-budget approvers (separate from global signers)
+    address[] approvers;
 }
 
 struct SpendRecord {
@@ -138,27 +126,26 @@ library TreasuryCoreStorage {
         mapping(bytes32 => Budget) budgets;
         mapping(bytes32 => SpendRecord[]) budgetSpendHistory;
         bytes32[] budgetIds;
+        // Per-budget approver lookup: budgetApprovers[approver][budgetId] => isApprover
+        mapping(address => mapping(bytes32 => bool)) budgetApprovers;
 
         // Yield strategies
         mapping(bytes32 => YieldStrategy) strategies;
         mapping(bytes32 => YieldPosition) positions;
         bytes32[] strategyIds;
 
-        // Streaming
-        mapping(uint256 => Stream) streams;
-        uint256 streamCounter;
-
         // Emergency
         bool paused;
         bool emergencyShutdown;
         mapping(address => bool) recoveryAddresses;
         uint256 emergencyUnlockTime;
+        address pendingRecoveryToken;
 
         // Module registry (authorized external modules)
         mapping(bytes32 => address) moduleRegistry;
 
         // Storage gap for future upgrades
-        uint256[45] __gap;
+        uint256[43] __gap;
     }
 
     function layout() internal pure returns (Layout storage l) {

@@ -83,7 +83,7 @@ contract TreasuryCoreTest is Test {
     function testProposeTransaction() public {
         vm.prank(alice);
         uint256 txId = treasury.proposeTransaction(
-            recipient, 1 ether, "", 0, 0, "Send 1 ETH to recipient", bytes32(0)
+            recipient, 1 ether, "", 0, 0, "Send 1 ETH to recipient", bytes32(0), bytes32(0), 0
         );
 
         MultiSigTransaction memory tx_ = treasury.getTransaction(txId);
@@ -94,7 +94,7 @@ contract TreasuryCoreTest is Test {
         // Propose
         vm.prank(alice);
         uint256 txId = treasury.proposeTransaction(
-            recipient, 1 ether, "", 0, 0, "Send 1 ETH", bytes32(0)
+            recipient, 1 ether, "", 0, 0, "Send 1 ETH", bytes32(0), bytes32(0), 0
         );
 
         // Approve by signer1
@@ -121,7 +121,7 @@ contract TreasuryCoreTest is Test {
     function testMultiSigWithTimelock() public {
         vm.prank(alice);
         uint256 txId = treasury.proposeTransaction(
-            recipient, 1 ether, "", 1 days, 0, "Send 1 ETH with delay", bytes32(0)
+            recipient, 1 ether, "", 1 days, 0, "Send 1 ETH with delay", bytes32(0), bytes32(0), 0
         );
 
         // Approve by 2 signers
@@ -150,7 +150,7 @@ contract TreasuryCoreTest is Test {
     function testApproveBySignature() public {
         vm.prank(alice);
         uint256 txId = treasury.proposeTransaction(
-            recipient, 0.5 ether, "", 0, 0, "Gasless test", bytes32(0)
+            recipient, 0.5 ether, "", 0, 0, "Gasless test", bytes32(0), bytes32(0), 0
         );
 
         uint256 nonce = treasury.getNonce(signer1);
@@ -188,7 +188,7 @@ contract TreasuryCoreTest is Test {
     function testRejectTransaction() public {
         vm.prank(alice);
         uint256 txId = treasury.proposeTransaction(
-            recipient, 1 ether, "", 0, 0, "Test reject", bytes32(0)
+            recipient, 1 ether, "", 0, 0, "Test reject", bytes32(0), bytes32(0), 0
         );
 
         vm.prank(signer1);
@@ -204,7 +204,7 @@ contract TreasuryCoreTest is Test {
     function testCancelTransaction() public {
         vm.prank(alice);
         uint256 txId = treasury.proposeTransaction(
-            recipient, 1 ether, "", 0, 0, "Test cancel", bytes32(0)
+            recipient, 1 ether, "", 0, 0, "Test cancel", bytes32(0), bytes32(0), 0
         );
 
         vm.prank(admin);
@@ -273,16 +273,17 @@ contract TreasuryCoreTest is Test {
             10_000e6
         );
 
-        // Record a spend
+        // Verify budget was created
+        assertEq(treasury.getBudgetAvailable(budgetId), 100_000e6);
+
+        // Propose a transaction linked to the budget — funds are frozen via the hook
         vm.prank(alice);
-        uint256 txId = treasury.proposeTransaction(
+        treasury.proposeTransaction(
             recipient, 0, abi.encodeWithSignature("transfer(address,uint256)", recipient, 5_000e6),
-            0, 0, "Budget spend", bytes32(0)
+            0, 0, "Budget spend", bytes32(0), budgetId, 5_000e6
         );
 
-        treasury.recordBudgetSpend(budgetId, txId, address(usdc), 5_000e6, recipient, "Server costs");
-
-        // Check budget available
+        // Budget funds should now be frozen (pending execution)
         uint256 available = treasury.getBudgetAvailable(budgetId);
         assertEq(available, 100_000e6 - 5_000e6);
     }
@@ -355,7 +356,7 @@ contract TreasuryCoreTest is Test {
         // Cannot propose while paused
         vm.prank(alice);
         vm.expectRevert();
-        treasury.proposeTransaction(recipient, 1 ether, "", 0, 0, "", bytes32(0));
+        treasury.proposeTransaction(recipient, 1 ether, "", 0, 0, "", bytes32(0), bytes32(0), 0);
 
         vm.prank(admin);
         treasury.unpause();

@@ -1,9 +1,21 @@
 # Compiler output
 out/
 cache/
+broadcast/
 
 # Dependencies (restore with `forge install`)
-lib/
+/lib/
+node_modules/
+frontend/node_modules/
+subgraph/node_modules/
+
+# Frontend build output
+frontend/.next/
+frontend/out/
+
+# Subgraph build output
+subgraph/build/
+subgraph/generated/
 
 # Environment
 .env

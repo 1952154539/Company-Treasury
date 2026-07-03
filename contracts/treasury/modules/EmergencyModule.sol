@@ -78,16 +78,22 @@ abstract contract EmergencyModule is ITreasuryEvents {
         return TreasuryCoreStorage.layout().recoveryAddresses[addr];
     }
 
-    function initiateEmergencyRecovery(address to, address /*token*/, uint256 amount)
+    /// @notice Initiate emergency recovery with 48h timelock. Stores the target token for later execution.
+    /// Can be called during shutdown (tier 2) to begin the recovery process.
+    function initiateEmergencyRecovery(address to, address token, uint256 amount)
         external
         onlyRecovery
-        whenNotShutdown
     {
         TreasuryCoreStorage.Layout storage $ = TreasuryCoreStorage.layout();
         if (!$.recoveryAddresses[to]) revert RecoveryAddressNotSet();
 
         $.emergencyUnlockTime = block.timestamp + MAX_RECOVERY_DELAY;
+        $.pendingRecoveryToken = token;
         emit EmergencyRecoveryInitiated(to, $.emergencyUnlockTime, amount);
+    }
+
+    function getPendingRecoveryToken() external view returns (address) {
+        return TreasuryCoreStorage.layout().pendingRecoveryToken;
     }
 
     function getEmergencyUnlockTime() external view returns (uint256) {

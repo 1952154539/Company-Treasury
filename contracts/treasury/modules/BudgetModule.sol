@@ -18,6 +18,14 @@ import {
 import {BUDGET_MANAGER_ROLE, DEFAULT_ADMIN_ROLE} from "../../libraries/TreasuryConstants.sol";
 
 abstract contract BudgetModule is ITreasuryEvents {
+    modifier onlyBudgetApprover(bytes32 budgetId) {
+        TreasuryCoreStorage.Layout storage $ = TreasuryCoreStorage.layout();
+        if (!$.budgetApprovers[msg.sender][budgetId]) {
+            revert NotAuthorized(msg.sender, DEFAULT_ADMIN_ROLE);
+        }
+        _;
+    }
+
     // ---- Budget CRUD ----
 
     function createBudget(
@@ -50,8 +58,15 @@ abstract contract BudgetModule is ITreasuryEvents {
             endTime: endTime,
             status: BudgetStatus.Active,
             maxSingleSpend: maxSingleSpend,
-            approvalThreshold: approvalThreshold > 0 ? approvalThreshold : $.globalThreshold
+            approvalThreshold: approvalThreshold > 0 ? approvalThreshold : $.globalThreshold,
+            approvers: approvers
         });
+
+        // Populate budget approvers lookup for O(1) authorization
+        for (uint256 i = 0; i < approvers.length; i++) {
+            $.budgetApprovers[approvers[i]][budgetId] = true;
+        }
+
         $.budgetIds.push(budgetId);
 
         emit BudgetCreated(
@@ -110,15 +125,16 @@ abstract contract BudgetModule is ITreasuryEvents {
 
     // ---- Budget Spend Tracking ----
 
-    /// Called internally by MultiSigModule after successful execution
-    function recordBudgetSpend(
+    /// @notice Records a budget spend and freezes the funds.
+    /// Called internally by TreasuryCore during proposeTransaction when a budgetId is provided.
+    function _recordBudgetSpend(
         bytes32 budgetId,
         uint256 txId,
         address token,
         uint256 amount,
         address recipient,
-        string calldata purpose
-    ) external {
+        string memory purpose
+    ) internal {
         TreasuryCoreStorage.Layout storage $ = TreasuryCoreStorage.layout();
         Budget storage budget = $.budgets[budgetId];
         if (budget.owner == address(0)) revert BudgetNotFound(budgetId);
@@ -149,16 +165,21 @@ abstract contract BudgetModule is ITreasuryEvents {
         emit BudgetSpent(budgetId, txId, token, amount, recipient, purpose);
     }
 
-    /// Called by MultiSigModule after execution completes
-    function finalizeBudgetSpend(bytes32 budgetId, uint256 amount) external {
+    /// @notice Moves frozen funds to spent. Called by TreasuryCore after successful transaction execution.
+    function finalizeBudgetSpend(bytes32 budgetId, uint256 amount) public {
+        // Access control via moduleRegistry in TreasuryCore._afterExecution
         TreasuryCoreStorage.Layout storage $ = TreasuryCoreStorage.layout();
         Budget storage budget = $.budgets[budgetId];
-        budget.totalFrozen -= amount;
+        if (budget.totalFrozen >= amount) {
+            budget.totalFrozen -= amount;
+        } else {
+            budget.totalFrozen = 0;
+        }
         budget.totalSpent += amount;
     }
 
-    /// Called by MultiSigModule when a transaction is cancelled to release frozen funds
-    function releaseBudgetFrozen(bytes32 budgetId, uint256 amount) external {
+    /// @notice Releases frozen funds back. Called by TreasuryCore on execution failure or cancellation.
+    function releaseBudgetFrozen(bytes32 budgetId, uint256 amount) public {
         TreasuryCoreStorage.Layout storage $ = TreasuryCoreStorage.layout();
         Budget storage budget = $.budgets[budgetId];
         if (budget.totalFrozen >= amount) {
@@ -189,6 +210,10 @@ abstract contract BudgetModule is ITreasuryEvents {
 
     function getBudgetIds() external view returns (bytes32[] memory) {
         return TreasuryCoreStorage.layout().budgetIds;
+    }
+
+    function isBudgetApprover(address account, bytes32 budgetId) external view returns (bool) {
+        return TreasuryCoreStorage.layout().budgetApprovers[account][budgetId];
     }
 
     function _hasRole(bytes32 role, address account) internal view virtual returns (bool);

@@ -38,6 +38,16 @@ abstract contract MultiSigModule is ITreasuryEvents {
 
     // ---- Transaction lifecycle ----
 
+    /// @notice Propose a multi-sig transaction. Optionally link to a budget for spend tracking.
+    /// @param target Destination address for the call
+    /// @param value ETH value to send
+    /// @param data Calldata for the call
+    /// @param minDelay Minimum timelock delay (0 = use default, override only if > default)
+    /// @param approvalThreshold Number of approvals required (0 = use global threshold)
+    /// @param description Human-readable description
+    /// @param salt Unique salt to prevent duplicate transactions
+    /// @param budgetId Optional budget to debit (bytes32(0) if not budget-related)
+    /// @param budgetAmount Amount to debit from the budget
     function proposeTransaction(
         address target,
         uint256 value,
@@ -45,13 +55,15 @@ abstract contract MultiSigModule is ITreasuryEvents {
         uint256 minDelay,
         uint256 approvalThreshold,
         string calldata description,
-        bytes32 salt
+        bytes32 salt,
+        bytes32 budgetId,
+        uint256 budgetAmount
     ) external returns (uint256 txId) {
         TreasuryCoreStorage.Layout storage $ = TreasuryCoreStorage.layout();
         if ($.paused) revert ContractPaused();
         if (target == address(0)) revert ZeroAddress();
 
-        bytes32 txHash = keccak256(abi.encode(target, value, data, description, salt));
+        bytes32 txHash = keccak256(abi.encode(target, value, data, description, salt, budgetId));
         if ($.executedTxHashes[txHash]) revert DuplicateTransaction(txHash);
 
         if (approvalThreshold == 0) {
@@ -76,6 +88,13 @@ abstract contract MultiSigModule is ITreasuryEvents {
         tx_.createdAt = block.timestamp;
         tx_.description = description;
         tx_.salt = salt;
+        tx_.budgetId = budgetId;
+        tx_.budgetAmount = budgetAmount;
+
+        // Freeze budget funds if this transaction is linked to a budget
+        if (budgetId != bytes32(0) && budgetAmount > 0) {
+            _beforeProposeHook(txId, budgetId, budgetAmount);
+        }
 
         emit TransactionProposed(txId, msg.sender, target, value, data, tx_.minDelay, approvalThreshold, description);
     }
@@ -89,7 +108,7 @@ abstract contract MultiSigModule is ITreasuryEvents {
         _validateSigner(signer);
 
         uint256 signerIndex = _getSignerIndex(signer);
-        uint256 bit = 1 << signerIndex;
+        uint256 bit = uint256(1) << signerIndex;
         if (tx_.approvalBitmap & bit != 0) revert TransactionAlreadyApproved(txId, signer);
 
         tx_.approvalBitmap |= bit;
@@ -113,7 +132,7 @@ abstract contract MultiSigModule is ITreasuryEvents {
         _validateSigner(recovered);
 
         uint256 signerIndex = _getSignerIndex(recovered);
-        uint256 bit = 1 << signerIndex;
+        uint256 bit = uint256(1) << signerIndex;
         if (tx_.approvalBitmap & bit != 0) revert TransactionAlreadyApproved(txId, recovered);
 
         tx_.approvalBitmap |= bit;
@@ -132,7 +151,7 @@ abstract contract MultiSigModule is ITreasuryEvents {
         _validateSigner(signer);
 
         uint256 signerIndex = _getSignerIndex(signer);
-        uint256 bit = 1 << signerIndex;
+        uint256 bit = uint256(1) << signerIndex;
         if (tx_.approvalBitmap & bit == 0) return;
 
         tx_.approvalBitmap &= ~bit;
@@ -158,17 +177,19 @@ abstract contract MultiSigModule is ITreasuryEvents {
 
         tx_.status = TransactionStatus.Executed;
         bytes32 txHash =
-            keccak256(abi.encode(tx_.target, tx_.value, tx_.data, tx_.description, tx_.salt));
+            keccak256(abi.encode(tx_.target, tx_.value, tx_.data, tx_.description, tx_.salt, tx_.budgetId));
         $.executedTxHashes[txHash] = true;
 
         (bool success, bytes memory result) = tx_.target.call{value: tx_.value}(tx_.data);
 
         if (!success) {
             tx_.status = TransactionStatus.Failed;
+            _afterExecution(txId, false);
             emit TransactionExecuted(txId, msg.sender, false, result);
             revert TransactionExecutionFailed(txId, result);
         }
 
+        _afterExecution(txId, true);
         emit TransactionExecuted(txId, msg.sender, true, result);
     }
 
@@ -186,6 +207,7 @@ abstract contract MultiSigModule is ITreasuryEvents {
         }
 
         tx_.status = TransactionStatus.Cancelled;
+        _afterCancellation(txId);
         emit TransactionCancelled(txId, msg.sender);
     }
 
@@ -236,7 +258,7 @@ abstract contract MultiSigModule is ITreasuryEvents {
         uint256 len = $.signerList.length;
         bool[] memory approvals = new bool[](len);
         for (uint256 i = 0; i < len; i++) {
-            approvals[i] = (tx_.approvalBitmap & (1 << i)) != 0;
+            approvals[i] = (tx_.approvalBitmap & (uint256(1) << i)) != 0;
         }
         return approvals;
     }
@@ -253,7 +275,7 @@ abstract contract MultiSigModule is ITreasuryEvents {
             }
         }
         if (signerIndex == type(uint256).max) return false;
-        return (tx_.approvalBitmap & (1 << signerIndex)) != 0;
+        return (tx_.approvalBitmap & (uint256(1) << signerIndex)) != 0;
     }
 
     function getNonce(address owner) external view returns (uint256) {
@@ -264,6 +286,18 @@ abstract contract MultiSigModule is ITreasuryEvents {
     function _hasRole(bytes32 role, address account) internal view virtual returns (bool);
     function _getActiveSignerCount() internal view virtual returns (uint256);
     function _hashTypedDataV4(bytes32 structHash) internal view virtual returns (bytes32);
+
+    /// @notice Hook called during proposeTransaction to freeze budget funds.
+    /// Override in TreasuryCore to call BudgetModule._recordBudgetSpend.
+    function _beforeProposeHook(uint256 txId, bytes32 budgetId, uint256 amount) internal virtual {}
+
+    /// @notice Hook called after transaction execution. Override in TreasuryCore to
+    /// finalize or release budget funds.
+    function _afterExecution(uint256 txId, bool success) internal virtual {}
+
+    /// @notice Hook called after transaction cancellation. Override in TreasuryCore to
+    /// release frozen budget funds.
+    function _afterCancellation(uint256 txId) internal virtual {}
 
     uint256[48] private __multiSigModuleGap;
 }

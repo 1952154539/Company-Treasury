@@ -1,0 +1,141 @@
+# ---- Treasury Globals ----
+type Treasury @entity(immutable: false) {
+  id: ID!                        # "TREASURY"
+  address: Bytes!
+  admin: Bytes!
+  globalThreshold: BigInt!
+  defaultMinDelay: BigInt!
+  paused: Boolean!
+  emergencyShutdown: Boolean!
+  transactionCount: BigInt!
+  signerCount: BigInt!
+}
+
+# ---- Signers ----
+type Signer @entity(immutable: false) {
+  id: ID!                        # signer address
+  weight: BigInt!
+  active: Boolean!
+  joinedAt: BigInt!
+  approvalCount: BigInt!
+}
+
+# ---- Multi-Sig Transactions ----
+type Transaction @entity(immutable: false) {
+  id: ID!                        # txId as string
+  txId: BigInt!
+  proposer: Bytes!
+  target: Bytes!
+  value: BigInt!
+  data: Bytes
+  status: String!                # Draft | Queued | Ready | Executed | Cancelled | Failed
+  approvalsRequired: BigInt!
+  approvalCount: BigInt!
+  minDelay: BigInt!
+  executableAt: BigInt!
+  createdAt: BigInt!
+  description: String
+  salt: Bytes
+  budgetId: Bytes
+  budgetAmount: BigInt
+  approvals: [Approval!]! @derivedFrom(field: "transaction")
+}
+
+type Approval @entity(immutable: true) {
+  id: ID!                        # txId-signer
+  transaction: Transaction!
+  signer: Signer!
+  timestamp: BigInt!
+}
+
+# ---- Budgets ----
+type Budget @entity(immutable: false) {
+  id: ID!                        # budgetId as hex
+  name: String!
+  owner: Bytes!
+  totalAllocated: BigInt!
+  totalSpent: BigInt!
+  totalFrozen: BigInt!
+  startTime: BigInt!
+  endTime: BigInt!
+  status: String!                # Active | Closed | Cancelled
+  maxSingleSpend: BigInt!
+  approvalThreshold: BigInt!
+  createdTx: Bytes!
+  spends: [SpendRecord!]! @derivedFrom(field: "budget")
+}
+
+type SpendRecord @entity(immutable: true) {
+  id: ID!                        # budgetId-txId
+  budget: Budget!
+  transactionId: BigInt!
+  token: Bytes!
+  amount: BigInt!
+  recipient: Bytes!
+  timestamp: BigInt!
+  purpose: String
+}
+
+# ---- Streaming ----
+type Stream @entity(immutable: false) {
+  id: ID!                        # streamId as string
+  streamId: BigInt!
+  sender: Bytes!
+  recipient: Bytes!
+  token: Bytes!
+  totalAmount: BigInt!
+  remainingBalance: BigInt!
+  startTime: BigInt!
+  cliffDuration: BigInt!
+  endTime: BigInt!
+  lastWithdrawalTime: BigInt!
+  withdrawnAmount: BigInt!
+  cancelable: Boolean!
+  active: Boolean!
+  budgetId: Bytes
+  withdrawals: [StreamWithdrawal!]! @derivedFrom(field: "stream")
+}
+
+type StreamWithdrawal @entity(immutable: true) {
+  id: ID!                        # streamId-txHash
+  stream: Stream!
+  recipient: Bytes!
+  amount: BigInt!
+  txHash: Bytes!
+  timestamp: BigInt!
+}
+
+# ---- Yield ----
+type Strategy @entity(immutable: false) {
+  id: ID!                        # strategyId as hex
+  name: String!
+  vault: Bytes!
+  asset: Bytes!
+  active: Boolean!
+  allocationCap: BigInt!
+  totalDeposited: BigInt!
+  riskLevel: Int!
+  addedAt: BigInt!
+}
+
+type Position @entity(immutable: false) {
+  id: ID!                        # positionId as hex
+  strategy: Strategy!
+  depositedAssets: BigInt!
+  vaultShares: BigInt!
+  accruedYield: BigInt!
+  lastHarvestTime: BigInt!
+  createdAt: BigInt!
+  active: Boolean!
+}
+
+# ---- Emergency Events ----
+type EmergencyEvent @entity(immutable: true) {
+  id: ID!                        # txHash-logIndex
+  eventType: String!             # Paused | Unpaused | Shutdown | RecoveryInitiated | RecoveryExecuted
+  triggeredBy: Bytes!
+  timestamp: BigInt!
+  amount: BigInt
+  unlockTime: BigInt
+  txHash: Bytes!
+}

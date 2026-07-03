@@ -167,6 +167,15 @@ contract YieldManager is
 
     // ---- Position Management ----
 
+    /// @notice Deposit assets into an ERC-4626 yield strategy.
+    /// @dev Three-step pattern: (1) YieldManager pulls assets from TreasuryCore,
+    /// (2) approves the vault to spend assets, (3) deposits into the vault with
+    /// vault shares going back to TreasuryCore. YieldManager never holds assets or shares.
+    /// @param strategyId The registered strategy to deposit into
+    /// @param amount Amount of underlying asset to deposit
+    /// @param minSharesOut Slippage protection: minimum vault shares expected
+    /// @return positionId Unique position identifier
+    /// @return shares Number of vault shares received
     function depositToStrategy(bytes32 strategyId, uint256 amount, uint256 minSharesOut)
         external
         onlyRole(STRATEGIST_ROLE)
@@ -209,6 +218,14 @@ contract YieldManager is
         emit YieldDeposited(strategyId, amount, shares, positionId);
     }
 
+    /// @notice Withdraw assets from a yield position by redeeming vault shares.
+    /// @dev Three-step pattern: (1) YieldManager pulls vault share tokens from TreasuryCore,
+    /// (2) approves the vault to spend the share tokens, (3) redeems shares → underlying
+    /// assets sent back to TreasuryCore. Vault burns shares from YieldManager.
+    /// @param positionId The position to withdraw from
+    /// @param shares Number of vault shares to redeem
+    /// @param minAssetsOut Slippage protection: minimum underlying assets expected
+    /// @return assets Amount of underlying assets received
     function withdrawFromStrategy(bytes32 positionId, uint256 shares, uint256 minAssetsOut)
         external
         onlyRole(STRATEGIST_ROLE)

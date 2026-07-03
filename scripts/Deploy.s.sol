@@ -3,6 +3,13 @@ pragma solidity ^0.8.24;
 
 import {Script, console} from "forge-std/Script.sol";
 import {TreasuryFactory, TreasuryDeployment} from "../contracts/factory/TreasuryFactory.sol";
+import {TreasuryCore} from "../contracts/treasury/TreasuryCore.sol";
+import {StreamingManager} from "../contracts/streaming/StreamingManager.sol";
+import {YieldManager} from "../contracts/yield/YieldManager.sol";
+import {
+    MODULE_YIELD,
+    MODULE_STREAMING
+} from "../contracts/libraries/TreasuryConstants.sol";
 
 contract DeployScript is Script {
     function run() external {
@@ -11,27 +18,66 @@ contract DeployScript is Script {
         uint256 threshold = vm.envUint("SIGNER_THRESHOLD");
         uint256 minDelay = vm.envUint("MIN_DELAY");
 
-        // Parse signers from comma-separated env var
         string memory signersStr = vm.envString("SIGNERS");
         address[] memory signers = _parseSigners(signersStr);
 
+        console.log("=== Company Treasury Deployment ===");
+        console.log("Chain ID:", block.chainid);
+        console.log("Deployer:", vm.addr(deployerPrivateKey));
+        console.log("Admin:", admin);
+        console.log("Signers:");
+        for (uint256 i = 0; i < signers.length; i++) {
+            console.log("  [%d] %s", i, signers[i]);
+        }
+        console.log("Threshold: %d/%d", threshold, signers.length);
+        console.log("Min Delay: %d seconds", minDelay);
+        console.log("");
+
         vm.startBroadcast(deployerPrivateKey);
 
+        // Deploy all contracts via factory
         TreasuryFactory factory = new TreasuryFactory();
         TreasuryDeployment memory d = factory.deploy(admin, signers, threshold, minDelay);
 
+        // Auto-register external modules
+        TreasuryCore(payable(address(d.treasuryCore))).registerModule(MODULE_YIELD, address(d.yieldManager));
+        TreasuryCore(payable(address(d.treasuryCore))).registerModule(MODULE_STREAMING, address(d.streamingManager));
+
         vm.stopBroadcast();
 
-        console.log("=== Treasury Deployment ===");
-        console.log("TreasuryCore:", address(d.treasuryCore));
-        console.log("StreamingManager:", address(d.streamingManager));
-        console.log("YieldManager:", address(d.yieldManager));
-        console.log("TreasuryCore Implementation:", address(d.treasuryCoreProxy));
-        console.log("StreamingManager Implementation:", address(d.streamingProxy));
-        console.log("YieldManager Implementation:", address(d.yieldProxy));
-        console.log("Admin:", admin);
-        console.log("Threshold:", threshold);
-        console.log("MinDelay:", minDelay);
+        // Output deployment info
+        console.log("=== Deployment Complete ===");
+        console.log("TreasuryCore Proxy:       %s", address(d.treasuryCore));
+        console.log("TreasuryCore Impl:        %s", address(d.treasuryCoreProxy));
+        console.log("StreamingManager Proxy:   %s", address(d.streamingManager));
+        console.log("StreamingManager Impl:    %s", address(d.streamingProxy));
+        console.log("YieldManager Proxy:       %s", address(d.yieldManager));
+        console.log("YieldManager Impl:        %s", address(d.yieldProxy));
+        console.log("");
+
+        // Write deployment artifact
+        string memory json = _buildDeploymentJson(d, admin);
+        vm.writeFile("./deployments/deployment.json", json);
+        console.log("Deployment artifact written to deployments/deployment.json");
+    }
+
+    function _buildDeploymentJson(TreasuryDeployment memory d, address admin)
+        internal
+        pure
+        returns (string memory)
+    {
+        string memory s = string(abi.encodePacked(
+            '{"chainId":', vm.toString(block.chainid),
+            ',"admin":"', vm.toString(admin),
+            '","treasuryCore":"', vm.toString(address(d.treasuryCore)),
+            '","treasuryCoreImpl":"', vm.toString(address(d.treasuryCoreProxy)),
+            '","streamingManager":"', vm.toString(address(d.streamingManager)),
+            '","streamingManagerImpl":"', vm.toString(address(d.streamingProxy)),
+            '","yieldManager":"', vm.toString(address(d.yieldManager)),
+            '","yieldManagerImpl":"', vm.toString(address(d.yieldProxy)),
+            '"}'
+        ));
+        return s;
     }
 
     function _parseSigners(string memory str) internal pure returns (address[] memory) {
@@ -40,7 +86,6 @@ contract DeployScript is Script {
             return new address[](0);
         }
 
-        // Count commas
         uint256 count = 1;
         for (uint256 i = 0; i < strBytes.length; i++) {
             if (strBytes[i] == ",") count++;

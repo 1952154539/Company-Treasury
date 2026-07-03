@@ -9,7 +9,7 @@ import {ReentrancyGuardTransient} from
 import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
-import {TreasuryCoreStorage} from "./TreasuryCoreStorage.sol";
+import {TreasuryCoreStorage, MultiSigTransaction} from "./TreasuryCoreStorage.sol";
 import {AccessModule} from "./modules/AccessModule.sol";
 import {MultiSigModule} from "./modules/MultiSigModule.sol";
 import {TimelockModule} from "./modules/TimelockModule.sol";
@@ -33,6 +33,10 @@ import {
     RECOVERY_ROLE,
     TREASURY_CONTROLLER_ROLE
 } from "../libraries/TreasuryConstants.sol";
+
+interface IStreamingManagerView {
+    function getStreamCount() external view returns (uint256);
+}
 
 contract TreasuryCore is
     EIP712Upgradeable,
@@ -180,6 +184,7 @@ contract TreasuryCore is
         TreasuryCoreStorage.Layout storage $ = TreasuryCoreStorage.layout();
         if (!$.recoveryAddresses[to]) revert RecoveryAddressNotSet();
         if (amount == 0) revert InvalidAmount();
+        if (block.timestamp < $.emergencyUnlockTime) revert RecoveryTimelockNotExpired($.emergencyUnlockTime);
 
         if (token == address(0)) {
             Address.sendValue(payable(to), amount);
@@ -214,6 +219,36 @@ contract TreasuryCore is
     }
 
     function getStreamCount() external view returns (uint256) {
-        return TreasuryCoreStorage.layout().streamCounter;
+        address streamingModule = TreasuryCoreStorage.layout().moduleRegistry[MODULE_STREAMING];
+        if (streamingModule == address(0)) return 0;
+        return IStreamingManagerView(streamingModule).getStreamCount();
+    }
+
+    // ---- Cross-module lifecycle hooks (budget integration) ----
+
+    /// @notice Freezes budget funds during transaction proposal.
+    function _beforeProposeHook(uint256 txId, bytes32 budgetId, uint256 amount)
+        internal
+        override
+    {
+        _recordBudgetSpend(budgetId, txId, address(0), amount, address(0), "budget spend");
+    }
+
+    /// @notice Finalizes or releases budget funds after transaction execution.
+    function _afterExecution(uint256 txId, bool success) internal override {
+        MultiSigTransaction storage tx_ = TreasuryCoreStorage.layout().transactions[txId];
+        if (tx_.budgetId == bytes32(0) || tx_.budgetAmount == 0) return;
+        if (success) {
+            finalizeBudgetSpend(tx_.budgetId, tx_.budgetAmount);
+        } else {
+            releaseBudgetFrozen(tx_.budgetId, tx_.budgetAmount);
+        }
+    }
+
+    /// @notice Releases frozen budget funds on transaction cancellation.
+    function _afterCancellation(uint256 txId) internal override {
+        MultiSigTransaction storage tx_ = TreasuryCoreStorage.layout().transactions[txId];
+        if (tx_.budgetId == bytes32(0) || tx_.budgetAmount == 0) return;
+        releaseBudgetFrozen(tx_.budgetId, tx_.budgetAmount);
     }
 }

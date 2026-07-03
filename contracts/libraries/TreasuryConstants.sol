@@ -21,4 +21,4 @@ uint256 constant MAX_BPS = 10_000;
 uint256 constant MAX_SIGNERS = 256;
 uint256 constant MIN_MIN_DELAY = 1 hours;
 uint256 constant MAX_MIN_DELAY = 30 days;
-uint256 constant MAX_RECOVERY_DELAY = 7 days;
+uint256 constant MAX_RECOVERY_DELAY = 48 hours;

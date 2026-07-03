@@ -1,0 +1,125 @@
+specVersion: 1.0.0
+indexerHints:
+  prune: auto
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: TreasuryCore
+    network: sepolia
+    source:
+      address: "0x0000000000000000000000000000000000000000"
+      abi: TreasuryCore
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Treasury
+        - Signer
+        - Transaction
+        - Approval
+        - Budget
+        - SpendRecord
+      abis:
+        - name: TreasuryCore
+          file: ./abis/TreasuryCore.json
+      eventHandlers:
+        - event: TransactionProposed(indexed uint256,indexed address,address,uint256,bytes,uint256,uint256,string)
+          handler: handleTransactionProposed
+        - event: TransactionApproved(indexed uint256,indexed address,uint256)
+          handler: handleTransactionApproved
+        - event: TransactionRejected(indexed uint256,indexed address)
+          handler: handleTransactionRejected
+        - event: TransactionQueued(indexed uint256,uint256)
+          handler: handleTransactionQueued
+        - event: TransactionExecuted(indexed uint256,address,bool,bytes)
+          handler: handleTransactionExecuted
+        - event: TransactionCancelled(indexed uint256,address)
+          handler: handleTransactionCancelled
+        - event: SignerAdded(indexed address,uint256)
+          handler: handleSignerAdded
+        - event: SignerRemoved(indexed address)
+          handler: handleSignerRemoved
+        - event: GlobalThresholdUpdated(uint256,uint256)
+          handler: handleGlobalThresholdUpdated
+        - event: DefaultMinDelayUpdated(uint256,uint256)
+          handler: handleDefaultMinDelayUpdated
+        - event: BudgetCreated(indexed bytes32,string,indexed address,uint256,uint64,uint64,address[],uint256)
+          handler: handleBudgetCreated
+        - event: BudgetSpent(indexed bytes32,indexed uint256,address,uint256,address,string)
+          handler: handleBudgetSpent
+        - event: BudgetClosed(indexed bytes32,uint256)
+          handler: handleBudgetClosed
+        - event: EmergencyPaused(indexed address)
+          handler: handleEmergencyPaused
+        - event: EmergencyUnpaused(indexed address)
+          handler: handleEmergencyUnpaused
+        - event: EmergencyShutdownTriggered(indexed address,uint256)
+          handler: handleEmergencyShutdown
+        - event: EmergencyRecoveryInitiated(indexed address,uint256,uint256)
+          handler: handleEmergencyRecoveryInitiated
+        - event: EmergencyRecoveryExecuted(indexed address,uint256)
+          handler: handleEmergencyRecoveryExecuted
+        - event: ModuleRegistered(indexed bytes32,indexed address)
+          handler: handleModuleRegistered
+      file: ./src/treasury-core.ts
+  - kind: ethereum
+    name: StreamingManager
+    network: sepolia
+    source:
+      address: "0x0000000000000000000000000000000000000000"
+      abi: StreamingManager
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Stream
+        - StreamWithdrawal
+      abis:
+        - name: StreamingManager
+          file: ./abis/StreamingManager.json
+      eventHandlers:
+        - event: StreamCreated(indexed uint256,indexed address,indexed address,address,uint256,uint64,uint64,uint64,bool)
+          handler: handleStreamCreated
+        - event: StreamWithdrawn(indexed uint256,indexed address,uint256)
+          handler: handleStreamWithdrawn
+        - event: StreamCancelled(indexed uint256,uint256,address)
+          handler: handleStreamCancelled
+      file: ./src/streaming.ts
+  - kind: ethereum
+    name: YieldManager
+    network: sepolia
+    source:
+      address: "0x0000000000000000000000000000000000000000"
+      abi: YieldManager
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Strategy
+        - Position
+      abis:
+        - name: YieldManager
+          file: ./abis/YieldManager.json
+      eventHandlers:
+        - event: StrategyAdded(indexed bytes32,string,address,address,uint256)
+          handler: handleStrategyAdded
+        - event: StrategyRemoved(indexed bytes32)
+          handler: handleStrategyRemoved
+        - event: StrategyUpdated(indexed bytes32,uint256)
+          handler: handleStrategyUpdated
+        - event: YieldDeposited(indexed bytes32,uint256,uint256,bytes32)
+          handler: handleYieldDeposited
+        - event: YieldWithdrawn(indexed bytes32,uint256,uint256)
+          handler: handleYieldWithdrawn
+        - event: YieldHarvested(indexed bytes32,uint256)
+          handler: handleYieldHarvested
+        - event: YieldRebalanced(indexed bytes32,indexed bytes32,uint256)
+          handler: handleYieldRebalanced
+      file: ./src/yield.ts
