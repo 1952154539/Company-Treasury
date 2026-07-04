@@ -14,16 +14,6 @@ export function useETHBalance() {
   });
 }
 
-export function useERC20Balance(token: `0x${string}`) {
-  return useReadContract({
-    address: CONTRACTS.treasuryCore,
-    abi: ABIS.treasuryCore,
-    functionName: "getERC20Balance",
-    args: [token],
-    query: { enabled: !!token && token !== "0x0000000000000000000000000000000000000000" },
-  });
-}
-
 export function useGlobalThreshold() {
   return useReadContract({
     address: CONTRACTS.treasuryCore,
@@ -75,14 +65,6 @@ export function useTransactionApprovals(txId: bigint) {
     functionName: "getTransactionApprovals",
     args: [txId],
     query: { enabled: txId > 0n },
-  });
-}
-
-export function useTransactionCount() {
-  return useReadContract({
-    address: CONTRACTS.treasuryCore,
-    abi: ABIS.treasuryCore,
-    functionName: "getTransactionCount",
   });
 }
 

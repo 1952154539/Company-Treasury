@@ -34,10 +34,6 @@ import {
     TREASURY_CONTROLLER_ROLE
 } from "../libraries/TreasuryConstants.sol";
 
-interface IStreamingManagerView {
-    function getStreamCount() external view returns (uint256);
-}
-
 contract TreasuryCore is
     EIP712Upgradeable,
     UUPSUpgradeable,
@@ -194,34 +190,10 @@ contract TreasuryCore is
         emit EmergencyRecoveryExecuted(to, amount);
     }
 
-    // ---- Admin functions ----
-
-    /// Emergency override to decrease min delay (requires admin)
-    function forceSetMinDelay(uint256 newDelay) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        TreasuryCoreStorage.Layout storage $ = TreasuryCoreStorage.layout();
-        uint256 oldDelay = $.defaultMinDelay;
-        $.defaultMinDelay = newDelay;
-        emit DefaultMinDelayUpdated(oldDelay, newDelay);
-    }
-
     // ---- View functions ----
 
     function getETHBalance() external view returns (uint256) {
         return address(this).balance;
-    }
-
-    function getERC20Balance(address token) external view returns (uint256) {
-        return IERC20(token).balanceOf(address(this));
-    }
-
-    function getTransactionCount() external view returns (uint256) {
-        return TreasuryCoreStorage.layout().transactionCounter;
-    }
-
-    function getStreamCount() external view returns (uint256) {
-        address streamingModule = TreasuryCoreStorage.layout().moduleRegistry[MODULE_STREAMING];
-        if (streamingModule == address(0)) return 0;
-        return IStreamingManagerView(streamingModule).getStreamCount();
     }
 
     // ---- Cross-module lifecycle hooks (budget integration) ----

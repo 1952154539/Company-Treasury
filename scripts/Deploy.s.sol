@@ -2,16 +2,16 @@
 pragma solidity ^0.8.24;
 
 import {Script, console} from "forge-std/Script.sol";
-import {TreasuryFactory, TreasuryDeployment} from "../contracts/factory/TreasuryFactory.sol";
-import {TreasuryCore} from "../contracts/treasury/TreasuryCore.sol";
-import {StreamingManager} from "../contracts/streaming/StreamingManager.sol";
-import {YieldManager} from "../contracts/yield/YieldManager.sol";
-import {
-    MODULE_YIELD,
-    MODULE_STREAMING
-} from "../contracts/libraries/TreasuryConstants.sol";
+
+// Minimal interfaces to avoid pulling in full contract bytecode
+interface IModuleRegistry {
+    function registerModule(bytes32 moduleName, address moduleAddress) external;
+}
 
 contract DeployScript is Script {
+    bytes32 constant MODULE_YIELD = keccak256("MODULE_YIELD");
+    bytes32 constant MODULE_STREAMING = keccak256("MODULE_STREAMING");
+
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address admin = vm.envAddress("TREASURY_ADMIN");
@@ -23,122 +23,112 @@ contract DeployScript is Script {
 
         console.log("=== Company Treasury Deployment ===");
         console.log("Chain ID:", block.chainid);
-        console.log("Deployer:", vm.addr(deployerPrivateKey));
         console.log("Admin:", admin);
-        console.log("Signers:");
-        for (uint256 i = 0; i < signers.length; i++) {
-            console.log("  [%d] %s", i, signers[i]);
-        }
         console.log("Threshold: %d/%d", threshold, signers.length);
-        console.log("Min Delay: %d seconds", minDelay);
-        console.log("");
+        for (uint256 i = 0; i < signers.length; i++) {
+            console.log("  Signer[%d]: %s", i, signers[i]);
+        }
+
+        // Read bytecode from compiled artifacts
+        string memory treasuryCoreInitCode = _readBytecode("TreasuryCore");
+        string memory streamingManagerInitCode = _readBytecode("StreamingManager");
+        string memory yieldManagerInitCode = _readBytecode("YieldManager");
+        string memory erc1967ProxyCode = _readBytecode("ERC1967Proxy");
 
         vm.startBroadcast(deployerPrivateKey);
 
-        // Deploy all contracts via factory
-        TreasuryFactory factory = new TreasuryFactory();
-        TreasuryDeployment memory d = factory.deploy(admin, signers, threshold, minDelay);
+        // Step 1: Deploy TreasuryCore implementation
+        address treasuryImpl = _deployCode(treasuryCoreInitCode);
 
-        // Auto-register external modules
-        TreasuryCore(payable(address(d.treasuryCore))).registerModule(MODULE_YIELD, address(d.yieldManager));
-        TreasuryCore(payable(address(d.treasuryCore))).registerModule(MODULE_STREAMING, address(d.streamingManager));
+        // Step 2: Deploy TreasuryCore proxy with initializer
+        bytes memory treasuryInitData = abi.encodeWithSignature(
+            "initialize(address,address[],uint256,uint256)", admin, signers, threshold, minDelay
+        );
+        address treasuryProxy = _deployProxy(erc1967ProxyCode, treasuryImpl, treasuryInitData);
+
+        // Step 3: Deploy StreamingManager implementation
+        address streamingImpl = _deployCode(streamingManagerInitCode);
+
+        // Step 4: Deploy StreamingManager proxy
+        bytes memory streamingInitData = abi.encodeWithSignature(
+            "initialize(address,address)", admin, treasuryProxy
+        );
+        address streamingProxy = _deployProxy(erc1967ProxyCode, streamingImpl, streamingInitData);
+
+        // Step 5: Deploy YieldManager implementation
+        address yieldImpl = _deployCode(yieldManagerInitCode);
+
+        // Step 6: Deploy YieldManager proxy
+        bytes memory yieldInitData = abi.encodeWithSignature(
+            "initialize(address,address)", admin, treasuryProxy
+        );
+        address yieldProxy = _deployProxy(erc1967ProxyCode, yieldImpl, yieldInitData);
+
+        // Step 7: Register modules
+        IModuleRegistry(treasuryProxy).registerModule(MODULE_YIELD, yieldProxy);
+        IModuleRegistry(treasuryProxy).registerModule(MODULE_STREAMING, streamingProxy);
 
         vm.stopBroadcast();
 
-        // Output deployment info
         console.log("=== Deployment Complete ===");
-        console.log("TreasuryCore Proxy:       %s", address(d.treasuryCore));
-        console.log("TreasuryCore Impl:        %s", address(d.treasuryCoreProxy));
-        console.log("StreamingManager Proxy:   %s", address(d.streamingManager));
-        console.log("StreamingManager Impl:    %s", address(d.streamingProxy));
-        console.log("YieldManager Proxy:       %s", address(d.yieldManager));
-        console.log("YieldManager Impl:        %s", address(d.yieldProxy));
-        console.log("");
-
-        // Write deployment artifact
-        string memory json = _buildDeploymentJson(d, admin);
-        vm.writeFile("./deployments/deployment.json", json);
-        console.log("Deployment artifact written to deployments/deployment.json");
+        console.log("TreasuryCore Impl:  %s", treasuryImpl);
+        console.log("TreasuryCore Proxy: %s", treasuryProxy);
+        console.log("Streaming Impl:     %s", streamingImpl);
+        console.log("Streaming Proxy:    %s", streamingProxy);
+        console.log("Yield Impl:         %s", yieldImpl);
+        console.log("Yield Proxy:        %s", yieldProxy);
     }
 
-    function _buildDeploymentJson(TreasuryDeployment memory d, address admin)
-        internal
-        pure
-        returns (string memory)
+    function _deployCode(string memory code) internal returns (address) {
+        bytes memory bytecode = vm.getCode(code);
+        address deployed;
+        assembly {
+            deployed := create(0, add(bytecode, 0x20), mload(bytecode))
+        }
+        require(deployed != address(0), "deploy failed");
+        return deployed;
+    }
+
+    function _deployProxy(string memory proxyCode, address impl, bytes memory initData)
+        internal returns (address proxy)
     {
-        string memory s = string(abi.encodePacked(
-            '{"chainId":', vm.toString(block.chainid),
-            ',"admin":"', vm.toString(admin),
-            '","treasuryCore":"', vm.toString(address(d.treasuryCore)),
-            '","treasuryCoreImpl":"', vm.toString(address(d.treasuryCoreProxy)),
-            '","streamingManager":"', vm.toString(address(d.streamingManager)),
-            '","streamingManagerImpl":"', vm.toString(address(d.streamingProxy)),
-            '","yieldManager":"', vm.toString(address(d.yieldManager)),
-            '","yieldManagerImpl":"', vm.toString(address(d.yieldProxy)),
-            '"}'
-        ));
-        return s;
+        bytes memory bytecode = vm.getCode(proxyCode);
+        bytes memory fullCode = abi.encodePacked(bytecode, abi.encode(impl, initData));
+        assembly {
+            proxy := create(0, add(fullCode, 0x20), mload(fullCode))
+        }
+        require(proxy != address(0), "proxy deploy failed");
+    }
+
+    function _readBytecode(string memory name) internal view returns (string memory) {
+        return string(abi.encodePacked("out/", name, ".sol/", name, ".json"));
     }
 
     function _parseSigners(string memory str) internal pure returns (address[] memory) {
-        bytes memory strBytes = bytes(str);
-        if (strBytes.length == 0) {
-            return new address[](0);
-        }
-
+        bytes memory s = bytes(str);
+        if (s.length == 0) return new address[](0);
         uint256 count = 1;
-        for (uint256 i = 0; i < strBytes.length; i++) {
-            if (strBytes[i] == ",") count++;
+        for (uint256 i = 0; i < s.length; i++) if (s[i] == ",") count++;
+        address[] memory r = new address[](count);
+        uint256 idx; uint256 ci; bytes memory c = new bytes(42);
+        for (uint256 i = 0; i < s.length; i++) {
+            if (s[i] == ",") {
+                bytes memory a = new bytes(ci);
+                for (uint256 j = 0; j < ci; j++) a[j] = c[j];
+                r[idx++] = _a(string(a)); ci = 0;
+            } else { c[ci++] = s[i]; }
         }
-
-        address[] memory result = new address[](count);
-        uint256 idx = 0;
-        bytes memory current = new bytes(42);
-        uint256 currentIdx = 0;
-
-        for (uint256 i = 0; i < strBytes.length; i++) {
-            if (strBytes[i] == ",") {
-                bytes memory addrBytes = new bytes(currentIdx);
-                for (uint256 j = 0; j < currentIdx; j++) {
-                    addrBytes[j] = current[j];
-                }
-                result[idx] = _parseAddress(string(addrBytes));
-                idx++;
-                currentIdx = 0;
-            } else {
-                current[currentIdx] = strBytes[i];
-                currentIdx++;
-            }
-        }
-
-        if (currentIdx > 0) {
-            bytes memory addrBytes = new bytes(currentIdx);
-            for (uint256 j = 0; j < currentIdx; j++) {
-                addrBytes[j] = current[j];
-            }
-            result[idx] = _parseAddress(string(addrBytes));
-        }
-
-        return result;
+        if (ci > 0) { bytes memory a = new bytes(ci); for (uint256 j = 0; j < ci; j++) a[j] = c[j]; r[idx] = _a(string(a)); }
+        return r;
     }
 
-    function _parseAddress(string memory str) internal pure returns (address) {
+    function _a(string memory str) internal pure returns (address) {
         bytes memory b = bytes(str);
-        uint160 result = 0;
+        uint160 r;
         for (uint256 i = 2; i < b.length; i++) {
-            result = result * 16 + _hexToUint(uint8(b[i]));
+            uint8 c = uint8(b[i]);
+            r = r * 16 + (c >= 48 && c <= 57 ? uint160(c - 48) : c >= 97 && c <= 102 ? uint160(c - 87) : c >= 65 && c <= 70 ? uint160(c - 55) : 0);
         }
-        return address(result);
-    }
-
-    function _hexToUint(uint8 c) internal pure returns (uint160) {
-        if (c >= uint8(bytes1("0")) && c <= uint8(bytes1("9"))) {
-            return uint160(c - uint8(bytes1("0")));
-        } else if (c >= uint8(bytes1("a")) && c <= uint8(bytes1("f"))) {
-            return uint160(c - uint8(bytes1("a")) + 10);
-        } else if (c >= uint8(bytes1("A")) && c <= uint8(bytes1("F"))) {
-            return uint160(c - uint8(bytes1("A")) + 10);
-        }
-        return 0;
+        return address(r);
     }
 }

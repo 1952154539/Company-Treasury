@@ -249,9 +249,7 @@ contract TreasuryCoreTest is Test {
         vm.expectRevert();
         treasury.setDefaultMinDelay(1 days);
 
-        // Admin can force decrease
-        vm.prank(admin);
-        treasury.forceSetMinDelay(1 hours);
+        // (forceSetMinDelay removed: admin can decrease via upgrade)
     }
 
     // ======== Budget Tests ========
@@ -378,7 +376,7 @@ contract TreasuryCoreTest is Test {
 
     function testReceiveERC20() public {
         usdc.mint(address(treasury), 1_000e6);
-        assertEq(treasury.getERC20Balance(address(usdc)), 1_001_000e6);
+        assertEq(usdc.balanceOf(address(treasury)), 1_001_000e6);
     }
 
     // ======== ETH Receive ========

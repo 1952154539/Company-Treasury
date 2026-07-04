@@ -16,16 +16,16 @@ export default function BudgetsPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Budgets</h1>
-          <p className="text-sm text-gray-500 mt-1">{ids.length} budgets</p>
+          <h1 className="text-2xl font-bold text-gray-900">预算管理</h1>
+          <p className="text-sm text-gray-500 mt-1">共 {ids.length} 个预算</p>
         </div>
         <CreateBudgetForm />
       </div>
 
       {!isConnected ? (
-        <div className="text-center py-10 text-gray-500">Connect wallet to view budgets</div>
+        <div className="text-center py-10 text-gray-500">请连接钱包查看预算</div>
       ) : ids.length === 0 ? (
-        <div className="text-center py-10 text-gray-500">No budgets yet</div>
+        <div className="text-center py-10 text-gray-500">暂无预算</div>
       ) : (
         <div className="space-y-3">
           {ids.map((id) => (
@@ -53,11 +53,11 @@ function BudgetCard({ budgetId, isSelected, onClick }: { budgetId: `0x${string}`
         <div className="flex items-center justify-between">
           <div>
             <span className="font-medium text-gray-900">{b.name as string}</span>
-            <span className="ml-3 text-sm text-gray-500">Owner: {(b.owner as string)?.slice(0, 8)}...</span>
+            <span className="ml-3 text-sm text-gray-500">负责人: {(b.owner as string)?.slice(0, 8)}...</span>
           </div>
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-600">
-              {formatEther(BigInt(available as string || "0"))} / {formatEther(BigInt(allocated))} available
+              {formatEther(BigInt(available as string || "0"))} / {formatEther(BigInt(allocated))} 可用
             </span>
             <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
               <div className="h-full bg-blue-500 rounded-full" style={{ width: `${pct}%` }} />
@@ -82,18 +82,18 @@ function BudgetDetail({ budgetId }: { budgetId: `0x${string}` }) {
   return (
     <div className="border-t border-gray-100 p-4 space-y-3">
       <div className="grid grid-cols-3 gap-3 text-sm">
-        <div><span className="text-gray-500">Allocated:</span> <span className="font-medium">{formatEther(BigInt(b.totalAllocated as string))}</span></div>
-        <div><span className="text-gray-500">Spent:</span> <span className="font-medium">{formatEther(BigInt(b.totalSpent as string))}</span></div>
-        <div><span className="text-gray-500">Frozen:</span> <span className="font-medium">{formatEther(BigInt(b.totalFrozen as string))}</span></div>
+        <div><span className="text-gray-500">总预算:</span> <span className="font-medium">{formatEther(BigInt(b.totalAllocated as string))}</span></div>
+        <div><span className="text-gray-500">已支出:</span> <span className="font-medium">{formatEther(BigInt(b.totalSpent as string))}</span></div>
+        <div><span className="text-gray-500">已冻结:</span> <span className="font-medium">{formatEther(BigInt(b.totalFrozen as string))}</span></div>
       </div>
 
       {spends.length > 0 && (
         <div>
-          <h4 className="text-sm font-medium text-gray-700 mb-2">Spend History</h4>
+          <h4 className="text-sm font-medium text-gray-700 mb-2">支出记录</h4>
           <table className="w-full text-xs">
             <thead>
               <tr className="text-left text-gray-500">
-                <th className="pb-1">Tx</th><th className="pb-1">Amount</th><th className="pb-1">Recipient</th><th className="pb-1">Purpose</th>
+                <th className="pb-1">交易</th><th className="pb-1">金额</th><th className="pb-1">收款方</th><th className="pb-1">用途</th>
               </tr>
             </thead>
             <tbody>
@@ -142,13 +142,13 @@ function CreateBudgetForm() {
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-4 w-full max-w-sm">
-      <h3 className="text-sm font-semibold text-gray-900 mb-3">Create Budget</h3>
+      <h3 className="text-sm font-semibold text-gray-900 mb-3">创建预算</h3>
       <div className="space-y-2">
-        <input type="text" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm" />
-        <input type="text" placeholder="Owner address" value={owner} onChange={(e) => setOwner(e.target.value)} className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm font-mono" />
-        <input type="text" placeholder="Allocation (ETH)" value={allocation} onChange={(e) => setAllocation(e.target.value)} className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm" />
+        <input type="text" placeholder="预算名称" value={name} onChange={(e) => setName(e.target.value)} className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm" />
+        <input type="text" placeholder="负责人地址" value={owner} onChange={(e) => setOwner(e.target.value)} className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm font-mono" />
+        <input type="text" placeholder="预算金额 (ETH)" value={allocation} onChange={(e) => setAllocation(e.target.value)} className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm" />
         <button onClick={handleCreate} disabled={!name || !owner} className="w-full px-3 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
-          Create Budget
+          创建预算
         </button>
       </div>
     </div>

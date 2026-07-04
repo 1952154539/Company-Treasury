@@ -2,17 +2,26 @@ import { createConfig, http } from "wagmi";
 import { injected, walletConnect } from "wagmi/connectors";
 import { sepolia, holesky, hardhat } from "wagmi/chains";
 
-const isTestnet = process.env.NEXT_PUBLIC_CHAIN === "sepolia";
-const chain = isTestnet ? sepolia : holesky;
+const chainEnv = process.env.NEXT_PUBLIC_CHAIN;
+const defaultChain = chainEnv === "sepolia" ? sepolia : chainEnv === "holesky" ? holesky : hardhat;
 
 const transports = {
-  [sepolia.id]: http(process.env.NEXT_PUBLIC_SEPOLIA_RPC),
-  [holesky.id]: http(process.env.NEXT_PUBLIC_HOLESKY_RPC),
+  [sepolia.id]: http(process.env.NEXT_PUBLIC_SEPOLIA_RPC || "https://ethereum-sepolia-rpc.publicnode.com"),
+  [holesky.id]: http(process.env.NEXT_PUBLIC_HOLESKY_RPC || "https://ethereum-holesky-rpc.publicnode.com"),
   [hardhat.id]: http("http://localhost:8545"),
 };
 
+// Deduplicate by chain id
+const allChains = [defaultChain, sepolia, holesky, hardhat];
+const seen = new Set<number>();
+const chains = allChains.filter((c) => {
+  if (seen.has(c.id)) return false;
+  seen.add(c.id);
+  return true;
+});
+
 export const config = createConfig({
-  chains: [chain, hardhat],
+  chains,
   transports,
   connectors: [
     injected({ shimDisconnect: true }),

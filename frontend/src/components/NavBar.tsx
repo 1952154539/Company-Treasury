@@ -5,12 +5,12 @@ import { usePathname } from "next/navigation";
 import { ConnectKitButton } from "connectkit";
 
 const NAV_ITEMS = [
-  { href: "/", label: "Dashboard" },
-  { href: "/transactions", label: "Transactions" },
-  { href: "/budgets", label: "Budgets" },
-  { href: "/streams", label: "Streams" },
-  { href: "/yield", label: "Yield" },
-  { href: "/admin", label: "Admin" },
+  { href: "/", label: "仪表盘" },
+  { href: "/transactions", label: "交易" },
+  { href: "/budgets", label: "预算" },
+  { href: "/streams", label: "流支付" },
+  { href: "/yield", label: "收益" },
+  { href: "/admin", label: "管理" },
 ];
 
 export function NavBar() {

@@ -1,0 +1,13 @@
+{
+  "chainId": 11155111,
+  "network": "sepolia",
+  "admin": "0xC7a263b1205226158b7A5F8Aa8fDbAAe9c15A55d",
+  "treasuryCore": "0x1e135cc50b4d39458ca835c8f3ff515587ebc31e",
+  "treasuryCoreImpl": "0x3b0E25a27F2bE642EA5497e13B0e8Ca00ca68019",
+  "streamingManager": "0x0f63b50b342f97d1057a5f0d4084650bde3abb9c",
+  "streamingManagerImpl": "0xd11939198BF994E84c2f97A842C629242714d0Af",
+  "yieldManager": "0x8d04e86e4340bbd74d0d88ebea99c87228f49d63",
+  "yieldManagerImpl": "0x9c6A3ca9661DA6AFa015834b74EAF4aC921beB3D",
+  "threshold": 1,
+  "minDelay": 0
+}

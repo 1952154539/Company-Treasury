@@ -4,9 +4,9 @@ import YieldManagerABI from "./abis/YieldManager.json";
 
 // Update these after deployment
 export const CONTRACTS = {
-  treasuryCore: "0x0000000000000000000000000000000000000000" as `0x${string}`,
-  streamingManager: "0x0000000000000000000000000000000000000000" as `0x${string}`,
-  yieldManager: "0x0000000000000000000000000000000000000000" as `0x${string}`,
+  treasuryCore: "0x1e135cc50b4d39458ca835c8f3ff515587ebc31e" as `0x${string}`,
+  streamingManager: "0x0f63b50b342f97d1057a5f0d4084650bde3abb9c" as `0x${string}`,
+  yieldManager: "0x8d04e86e4340bbd74d0d88ebea99c87228f49d63" as `0x${string}`,
 } as const;
 
 export const ABIS = {
@@ -27,20 +27,20 @@ export const ROLES = {
 } as const;
 
 export const ROLE_LABELS: Record<string, string> = {
-  [ROLES.DEFAULT_ADMIN_ROLE]: "Admin",
-  [ROLES.TREASURY_CONTROLLER_ROLE]: "Controller",
-  [ROLES.SIGNER_ROLE]: "Signer",
-  [ROLES.PROPOSER_ROLE]: "Proposer",
-  [ROLES.EXECUTOR_ROLE]: "Executor",
-  [ROLES.STRATEGIST_ROLE]: "Strategist",
-  [ROLES.BUDGET_MANAGER_ROLE]: "Budget Manager",
+  [ROLES.DEFAULT_ADMIN_ROLE]: "管理员",
+  [ROLES.TREASURY_CONTROLLER_ROLE]: "运营",
+  [ROLES.SIGNER_ROLE]: "签名者",
+  [ROLES.PROPOSER_ROLE]: "提案人",
+  [ROLES.EXECUTOR_ROLE]: "执行人",
+  [ROLES.STRATEGIST_ROLE]: "策略师",
+  [ROLES.BUDGET_MANAGER_ROLE]: "预算管理",
 };
 
 export const TX_STATUS_LABELS: Record<number, string> = {
-  0: "Draft",
-  1: "Queued",
-  2: "Ready",
-  3: "Executed",
-  4: "Cancelled",
-  5: "Failed",
+  0: "草稿",
+  1: "排队中",
+  2: "就绪",
+  3: "已执行",
+  4: "已取消",
+  5: "失败",
 };

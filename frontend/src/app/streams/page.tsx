@@ -13,14 +13,14 @@ export default function StreamsPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Payment Streams</h1>
-        <p className="text-sm text-gray-500 mt-1">{count} active streams</p>
+        <h1 className="text-2xl font-bold text-gray-900">流支付</h1>
+        <p className="text-sm text-gray-500 mt-1">共 {count} 个活跃流</p>
       </div>
 
       {!isConnected ? (
-        <div className="text-center py-10 text-gray-500">Connect wallet to view streams</div>
+        <div className="text-center py-10 text-gray-500">请连接钱包查看流支付</div>
       ) : count === 0 ? (
-        <div className="text-center py-10 text-gray-500">No streams yet</div>
+        <div className="text-center py-10 text-gray-500">暂无流支付</div>
       ) : (
         <div className="space-y-3">
           {Array.from({ length: Math.min(count, 20) }, (_, i) => i + 1).map((id) => (
@@ -58,21 +58,20 @@ function StreamCard({ streamId }: { streamId: bigint }) {
     <div className="bg-white border border-gray-200 rounded-lg p-4">
       <div className="flex items-center justify-between">
         <div>
-          <span className="font-mono text-sm text-gray-900">Stream #{String(streamId)}</span>
-          <span className="ml-3 text-sm text-gray-600">To: {(s.recipient as string)?.slice(0, 8)}...</span>
+          <span className="font-mono text-sm text-gray-900">流 #{String(streamId)}</span>
+          <span className="ml-3 text-sm text-gray-600">收款方: {(s.recipient as string)?.slice(0, 8)}...</span>
         </div>
         <div className="flex items-center gap-4">
-          <span className="text-sm text-gray-500">{formatEther(total)} total</span>
+          <span className="text-sm text-gray-500">{formatEther(total)} 总额</span>
           <span className={`px-2 py-0.5 rounded text-xs font-medium ${(s.active as boolean) ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-            {(s.active as boolean) ? "Active" : "Ended"}
+            {(s.active as boolean) ? "活跃" : "已结束"}
           </span>
         </div>
       </div>
 
-      {/* Progress bar */}
       <div className="mt-3">
         <div className="flex justify-between text-xs text-gray-500 mb-1">
-          <span>Vested: {formatEther(vestedAmt)}</span>
+          <span>已释放: {formatEther(vestedAmt)}</span>
           <span>{pct}%</span>
         </div>
         <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
@@ -82,9 +81,9 @@ function StreamCard({ streamId }: { streamId: bigint }) {
 
       {releaseAmt > 0n && (
         <div className="mt-3 flex justify-between items-center">
-          <span className="text-sm text-gray-600">Releasable: {formatEther(releaseAmt)}</span>
+          <span className="text-sm text-gray-600">可提取: {formatEther(releaseAmt)}</span>
           <button onClick={handleWithdraw} className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700">
-            Withdraw
+            提现
           </button>
         </div>
       )}
