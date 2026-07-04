@@ -1,20 +1,24 @@
 import { createConfig, http } from "wagmi";
-import { mainnet, sepolia, holesky, hardhat } from "wagmi/chains";
-import { getDefaultConfig } from "connectkit";
+import { injected, walletConnect } from "wagmi/connectors";
+import { sepolia, holesky, hardhat } from "wagmi/chains";
 
 const isTestnet = process.env.NEXT_PUBLIC_CHAIN === "sepolia";
+const chain = isTestnet ? sepolia : holesky;
 
-export const config = createConfig(
-  getDefaultConfig({
-    appName: "Company Treasury",
-    appDescription: "On-chain Corporate Treasury System",
-    appUrl: "https://company-treasury.vercel.app",
-    chains: [isTestnet ? sepolia : holesky, hardhat],
-    transports: {
-      [sepolia.id]: http(process.env.NEXT_PUBLIC_SEPOLIA_RPC),
-      [holesky.id]: http(process.env.NEXT_PUBLIC_HOLESKY_RPC),
-      [hardhat.id]: http("http://localhost:8545"),
-    },
-    walletConnectProjectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "",
-  })
-);
+const transports = {
+  [sepolia.id]: http(process.env.NEXT_PUBLIC_SEPOLIA_RPC),
+  [holesky.id]: http(process.env.NEXT_PUBLIC_HOLESKY_RPC),
+  [hardhat.id]: http("http://localhost:8545"),
+};
+
+export const config = createConfig({
+  chains: [chain, hardhat],
+  transports,
+  connectors: [
+    injected({ shimDisconnect: true }),
+    walletConnect({
+      projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "00000000000000000000000000000000",
+    }),
+  ],
+  ssr: false,
+});
