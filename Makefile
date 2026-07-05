@@ -1,4 +1,4 @@
-.PHONY: build test test-fuzz test-unit test-integration gas coverage clean deploy-sepolia deploy-holesky lint fix-lint slither
+.PHONY: build test test-fuzz test-unit test-integration test-yield test-all test-summary gas coverage clean deploy-sepolia deploy-holesky lint fix-lint slither
 
 # ---- Build ----
 build:
@@ -22,6 +22,25 @@ test-edge:
 
 test-invariants:
 	forge test --match-path "test/invariants/*" -vvv
+
+test-yield:
+	forge test --match-path "test/YieldStrategy.t.sol" -vvv
+
+test-all:
+	@echo "=== Running All Tests ==="
+	forge test -vvv
+	@echo ""
+	@echo "=== Test Count ==="
+	@forge test --summary
+
+test-summary:
+	@echo "=== Test Suite Summary ==="
+	@echo "Unit Tests:" && forge test --match-path test/TreasuryCore.t.sol --summary 2>&1 | grep "Tests:" | head -1
+	@echo "Fuzz Tests:" && forge test --match-path "test/fuzz/*" --summary 2>&1 | grep "Tests:" | head -1
+	@echo "Integration:" && forge test --match-path "test/integration/*" --summary 2>&1 | grep "Tests:" | head -1
+	@echo "Invariants:" && forge test --match-path "test/invariants/*" --summary 2>&1 | grep "Tests:" | head -1
+	@echo "Edge Cases:" && forge test --match-path "test/edge/*" --summary 2>&1 | grep "Tests:" | head -1
+	@echo "Yield:" && forge test --match-path "test/YieldStrategy.t.sol" --summary 2>&1 | grep "Tests:" | head -1
 
 # ---- Gas & Coverage ----
 gas:

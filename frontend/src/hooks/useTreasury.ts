@@ -1,8 +1,8 @@
 "use client";
 
-import { useReadContract, useWriteContract, useWatchContractEvent } from "wagmi";
+import { useReadContract, useWatchContractEvent } from "wagmi";
+import { useQueryClient } from "@tanstack/react-query";
 import { ABIS, CONTRACTS } from "@/lib/contracts";
-import { parseEther, formatEther, type Hash } from "viem";
 
 // ---- Read Hooks ----
 
@@ -94,6 +94,14 @@ export function useIsEmergencyShutdown() {
   });
 }
 
+export function useTransactionCount() {
+  return useReadContract({
+    address: CONTRACTS.treasuryCore,
+    abi: ABIS.treasuryCore,
+    functionName: "getTransactionCount",
+  });
+}
+
 // ---- Budget Hooks ----
 
 export function useBudget(budgetId: `0x${string}`) {
@@ -134,53 +142,41 @@ export function useBudgetSpendHistory(budgetId: `0x${string}`) {
   });
 }
 
-// ---- Write Hooks ----
+// ---- Event Hooks with Auto-Refresh ----
 
-export function useProposeTransaction() {
-  return useWriteContract({
-    // We'll configure per-call
-  });
-}
+export function useTreasuryEvents() {
+  const queryClient = useQueryClient();
 
-export function useApproveTransaction() {
-  return useWriteContract({
-    // Configured per-call
-  });
-}
-
-export function useExecuteTransaction() {
-  return useWriteContract({
-    // Configured per-call
-  });
-}
-
-export function useCancelTransaction() {
-  return useWriteContract({
-    // Configured per-call
-  });
-}
-
-export function usePause() {
-  return useWriteContract({});
-}
-
-export function useUnpause() {
-  return useWriteContract({});
-}
-
-// ---- Event Hooks ----
-
-export function useWatchTransactionEvents(onLogs?: (logs: unknown[]) => void) {
   useWatchContractEvent({
     address: CONTRACTS.treasuryCore,
     abi: ABIS.treasuryCore,
     eventName: "TransactionProposed",
-    onLogs,
+    onLogs: () => {
+      queryClient.invalidateQueries({ queryKey: ["readContract"] });
+    },
+  });
+  useWatchContractEvent({
+    address: CONTRACTS.treasuryCore,
+    abi: ABIS.treasuryCore,
+    eventName: "TransactionApproved",
+    onLogs: () => {
+      queryClient.invalidateQueries({ queryKey: ["readContract"] });
+    },
   });
   useWatchContractEvent({
     address: CONTRACTS.treasuryCore,
     abi: ABIS.treasuryCore,
     eventName: "TransactionExecuted",
-    onLogs,
+    onLogs: () => {
+      queryClient.invalidateQueries({ queryKey: ["readContract"] });
+    },
+  });
+  useWatchContractEvent({
+    address: CONTRACTS.treasuryCore,
+    abi: ABIS.treasuryCore,
+    eventName: "TransactionCancelled",
+    onLogs: () => {
+      queryClient.invalidateQueries({ queryKey: ["readContract"] });
+    },
   });
 }

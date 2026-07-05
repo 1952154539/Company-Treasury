@@ -3,7 +3,7 @@
 [![Solidity](https://img.shields.io/badge/Solidity-0.8.24-blue)](https://soliditylang.org)
 [![Foundry](https://img.shields.io/badge/Foundry-latest-orange)](https://book.getfoundry.sh)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-51%2F51%20passed-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-66%2F66%20passed-brightgreen)]()
 [![Next.js](https://img.shields.io/badge/Next.js-16-black)](https://nextjs.org)
 
 生产级链上企业金库系统。采用 **UUPS 可升级代理 + ERC-7201 命名空间存储** 的 Hub-and-Spoke 模块化架构，集成 N/M 多签治理（EIP-712 链下签名 + Bitmap 位图追踪）、棘轮时间锁、Sablier 式流支付、ERC-4626 DeFi 收益策略管理、部门预算分配，以及三级应急控制系统。
@@ -286,8 +286,9 @@ Company-Treasury/
 │   ├── interfaces/                   # 事件 + 错误定义
 │   └── libraries/                    # 角色常量
 │
-├── test/                             # Foundry 测试 (51 个)
+├── test/                             # Foundry 测试 (66 个)
 │   ├── TreasuryCore.t.sol            # 17 单元测试
+│   ├── YieldStrategy.t.sol           # 15 收益策略测试
 │   ├── fuzz/                         # 9 个 Fuzz × 1000 runs
 │   ├── invariants/                   # 7 个不变量测试
 │   ├── integration/                  # 7 个集成测试
@@ -295,14 +296,15 @@ Company-Treasury/
 │
 ├── frontend/                         # Next.js 16 前端
 │   ├── src/app/                      # 6 个页面
-│   │   ├── page.tsx                  # Dashboard
-│   │   ├── transactions/page.tsx     # 交易列表 + 提案表单
-│   │   ├── budgets/page.tsx          # 预算管理
-│   │   ├── streams/page.tsx          # 流支付
-│   │   ├── yield/page.tsx            # 收益策略
-│   │   └── admin/page.tsx            # 管理面板
-│   ├── src/hooks/                    # Wagmi 合约交互 hooks
-│   └── src/lib/                      # ABIs + 配置
+│   │   ├── page.tsx                  # Dashboard + 分析图表
+│   │   ├── transactions/page.tsx     # 交易列表 + 提案表单 + Toast
+│   │   ├── budgets/page.tsx          # 预算管理 + 进度条
+│   │   ├── streams/page.tsx          # 流支付 + 提现
+│   │   ├── yield/page.tsx            # 收益策略 + 存入
+│   │   └── admin/page.tsx            # 管理面板 + 紧急控制
+│   ├── src/components/               # Toast, Skeleton, Analytics, EventSubscriber
+│   ├── src/hooks/                    # Wagmi 合约读写 + 事件监听 hooks
+│   └── src/lib/                      # ABIs + 配置 + Wagmi 配置
 │
 ├── subgraph/                         # The Graph 子图
 │   ├── schema.graphql                # 11 个实体
@@ -366,7 +368,7 @@ npm run build     # 编译 WASM
 
 ## 测试套件
 
-51 个测试，6 个类别：
+66 个测试，7 个类别：
 
 | 类别 | 数量 | 覆盖范围 |
 |------|------|---------|
@@ -376,11 +378,12 @@ npm run build     # 编译 WASM
 | **不变量** | 7 | 预算会计恒等、取消释放冻结、模块注册权限、签名者一致性、关闭阻塞操作 |
 | **集成测试** | 7 | 完整多签+预算流程、时间锁交易、流支付全生命周期、暂停/恢复、紧急恢复、收益存取、批量流 |
 | **边界测试** | 10 | 阈值边界、签名者移除边界、零值交易、最小预算、未来时间预算、bitmap 碰撞、非授权拒绝 |
+| **收益率策略** | 15 | 策略生命周期、存取款、滑点保护、收益收割、紧急提现、跨策略调仓、暂停控制、权限校验 |
 
 ```bash
 # 全部测试
 forge test -vvv
-# Suite result: ok. 51 passed; 0 failed; 0 skipped
+# Suite result: ok. 66 passed; 0 failed; 0 skipped
 ```
 
 ---
@@ -402,6 +405,10 @@ forge test -vvv
 - EIP-712 浏览器签名审批（ConnectKit 内置 `signTypedData`）
 - 多签审批进度可视化（bitmap → N/M 头像栏）
 - 所有数据通过 Wagmi `useReadContract` 从链上实时读取
+- Recharts 分析图表（预算分配饼图、活动柱状图、策略风险分布）
+- Toast 通知系统（交易提交 → 确认中 → 成功/失败）
+- 合约事件实时监听 + React Query 自动刷新（TransactionProposed/Approved/Executed 等 8 个事件）
+- Skeleton 加载态 + ErrorBoundary 错误处理
 - Tailwind CSS 响应式布局
 
 ---
@@ -485,10 +492,10 @@ make deploy-local
 
 > **Company Treasury — 链上企业金库系统**
 >
-> * 设计并实现了基于 UUPS 可升级代理 + ERC-7201 命名空间存储的模块化 Hub-and-Spoke 架构，集成 N/M 多签（EIP-712 gasless 审批 + Bitmap 位图追踪）、棘轮时间锁、Sablier 式线性流支付、ERC-4626 DeFi 收益策略管理、部门预算分配（冻结-结算模型）
-> * 构建三级应急系统（Pause → Shutdown → 48h Recovery），采用 EIP-1153 瞬态存储防重入（ReentrancyGuardTransient + Checks-Effects-Interactions）；9 个细粒度角色遵循最小权限原则
-> * 编写 51 个 Foundry 测试（含 9 个 Fuzz × 1000 runs + 7 个不变量测试），覆盖多签生命周期、流支付数学、预算会计恒等、紧急恢复全流程
-> * 开发 The Graph 子图（3 数据源 / 23 事件处理器 / 11 实体），索引全部链上事件；构建 Next.js 16 + Wagmi/Viem 前端，实现多签审批可视化、EIP-712 浏览器签名、预算分析看板
+> * 设计并实现了基于 UUPS 可升级代理 + ERC-7201 命名空间存储的模块化 Hub-and-Spoke 架构，集成 N/M 多签（EIP-712 gasless 审批 + Bitmap 位图追踪）、棘轮时间锁、Sablier 式线性流支付、ERC-4626 DeFi 收益策略管理（含跨策略调仓/滑点保护/紧急提现）、部门预算分配（冻结-结算模型防双花）
+> * 构建三级应急系统（Pause → Shutdown → 48h Recovery），采用 EIP-1153 瞬态存储防重入（ReentrancyGuardTransient + Checks-Effects-Interactions）；9 个细粒度角色遵循最小权限原则，角色间互不重叠
+> * 编写 66 个 Foundry 测试（9 个 Fuzz × 1000 runs + 7 个不变量测试 + 15 个收益率策略专项测试），覆盖多签全生命周期、流支付数学正确性、预算会计恒等、收益存取一致性、紧急恢复全流程
+> * 开发 The Graph 子图（3 数据源 / 23 事件处理器 / 11 实体），索引全部链上事件；构建 Next.js 16 + Wagmi/Viem 前端，实现 Recharts 分析看板、EIP-712 浏览器签名、Toast 交易通知、8 个链上事件实时监听 + React Query 自动刷新
 
 ---
 

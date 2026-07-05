@@ -1,6 +1,7 @@
 "use client";
 
-import { useReadContract } from "wagmi";
+import { useReadContract, useWatchContractEvent } from "wagmi";
+import { useQueryClient } from "@tanstack/react-query";
 import { ABIS, CONTRACTS } from "@/lib/contracts";
 
 export function useStream(streamId: bigint) {
@@ -41,10 +42,23 @@ export function useReleasableAmount(streamId: bigint) {
   });
 }
 
-export function useTreasuryCore() {
-  return useReadContract({
+export function useStreamingEvents() {
+  const queryClient = useQueryClient();
+
+  useWatchContractEvent({
     address: CONTRACTS.streamingManager,
     abi: ABIS.streamingManager,
-    functionName: "getTreasuryCore",
+    eventName: "StreamCreated",
+    onLogs: () => {
+      queryClient.invalidateQueries({ queryKey: ["readContract"] });
+    },
+  });
+  useWatchContractEvent({
+    address: CONTRACTS.streamingManager,
+    abi: ABIS.streamingManager,
+    eventName: "StreamWithdrawn",
+    onLogs: () => {
+      queryClient.invalidateQueries({ queryKey: ["readContract"] });
+    },
   });
 }

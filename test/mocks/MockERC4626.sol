@@ -118,15 +118,30 @@ contract MockERC4626 is IERC4626 {
     function totalSupply() external view returns (uint256) { return _totalShares; }
     function balanceOf(address account) external view returns (uint256) { return _shares[account]; }
 
-    function transfer(address, uint256) external pure returns (bool) { return false; }
+    function transfer(address to, uint256 amount) external returns (bool) {
+        _shares[msg.sender] -= amount;
+        _shares[to] += amount;
+        emit Transfer(msg.sender, to, amount);
+        return true;
+    }
     function allowance(address owner, address spender) external view returns (uint256) {
         return _allowances[owner][spender];
     }
     function approve(address spender, uint256 amount) external returns (bool) {
         _allowances[msg.sender][spender] = amount;
+        emit Approval(msg.sender, spender, amount);
         return true;
     }
-    function transferFrom(address, address, uint256) external pure returns (bool) { return false; }
+    function transferFrom(address from, address to, uint256 amount) external returns (bool) {
+        if (msg.sender != from) {
+            _spendAllowance(from, msg.sender, amount);
+        }
+        _shares[from] -= amount;
+        _shares[to] += amount;
+        emit Transfer(from, to, amount);
+        return true;
+    }
+
 
     function _mint(address to, uint256 amount) internal {
         _shares[to] += amount;

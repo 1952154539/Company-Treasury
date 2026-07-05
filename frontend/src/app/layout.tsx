@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { NavBar } from "@/components/NavBar";
+import { EventSubscriber } from "@/components/EventSubscriber";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,6 +34,7 @@ export default function RootLayout({
         <Providers>
           <NavBar />
           <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+            <EventSubscriber />
             {children}
           </main>
         </Providers>
